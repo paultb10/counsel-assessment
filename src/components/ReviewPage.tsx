@@ -22,7 +22,7 @@ import {
 } from '../model';
 import {
   selectReview,
-  selectWeek,
+  createUndoRecord,
   undoEntries,
   updateEntries,
 } from '../review';
@@ -57,7 +57,6 @@ export function ReviewPage({
   const [operation, setOperation] = useState<UndoRecord | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const weekEntries = selectWeek(data.entries, week);
   const visible = selectReview(data.entries, data.clients, {
     week,
     clientId,
@@ -65,30 +64,42 @@ export function ReviewPage({
     status,
     search,
   });
-  const summaryEntries = weekEntries;
-  const exportEntries = weekEntries;
-  const summary = totals(summaryEntries);
+  const exportEntries = visible;
+  const summary = totals(visible);
   const selectedIds = selected.filter((id) =>
-    data.entries.some((e) => e.id === id),
+    visible.some((entry) => entry.id === id),
   );
   const employees = [...new Set(data.entries.map((e) => e.employee))].sort();
-  function changeView(update: () => void) {
+  const selectedMinutes = totals(
+    visible.filter((entry) => selectedIds.includes(entry.id)),
+  ).total;
+  const handleChangeView = (update: () => void): void => {
     update();
-  }
-  function apply(ids: string[], patch: EntryPatch) {
+    setSelected([]);
+    setError('');
+    setMessage(
+      selected.length
+        ? 'View changed. Selection cleared to keep actions within this view.'
+        : '',
+    );
+  };
+  const handleApply = (ids: string[], patch: EntryPatch): void => {
     setError('');
     try {
       const next = updateEntries(data, ids, patch);
       save(next);
-      setOperation({ before: data, ids });
+      const undo = createUndoRecord(data, next);
+      setOperation(undo.before.length ? undo : operation);
       setSelected([]);
       setMessage(
-        `Updated ${ids.length} ${ids.length === 1 ? 'entry' : 'entries'}.`,
+        undo.before.length
+          ? `Updated ${undo.before.length} ${undo.before.length === 1 ? 'entry' : 'entries'}.${patch.clientId !== undefined || patch.billable !== undefined ? ' Corrections need review again.' : ''}`
+          : 'No changes needed.',
       );
     } catch (e) {
       setError((e as Error).message);
     }
-  }
+  };
   return (
     <section className="review-page" aria-label="Weekly review">
       <div className="period-toolbar">
@@ -96,7 +107,7 @@ export function ReviewPage({
           <button
             className="icon-button"
             aria-label="Previous review week"
-            onClick={() => changeView(() => setWeek(addDays(week, -7)))}
+            onClick={() => handleChangeView(() => setWeek(addDays(week, -7)))}
           >
             <ChevronLeft size={18} />
           </button>
@@ -108,14 +119,14 @@ export function ReviewPage({
               value={week}
               onChange={(e) =>
                 e.target.value &&
-                changeView(() => setWeek(weekStart(e.target.value)))
+                handleChangeView(() => setWeek(weekStart(e.target.value)))
               }
             />
           </label>
           <button
             className="icon-button"
             aria-label="Next review week"
-            onClick={() => changeView(() => setWeek(addDays(week, 7)))}
+            onClick={() => handleChangeView(() => setWeek(addDays(week, 7)))}
           >
             <ChevronRight size={18} />
           </button>
@@ -169,7 +180,10 @@ export function ReviewPage({
         <div className="panel-title">
           <div>
             <h2>Check the details.</h2>
-            <p>Select entries and update the week’s records.</p>
+            <p>
+              Select entries to act on this view. Changing filters clears
+              selection.
+            </p>
           </div>
         </div>
         <div className="filters review-filters">
@@ -179,13 +193,17 @@ export function ReviewPage({
               aria-label="Search review"
               placeholder="Find an entry…"
               value={search}
-              onChange={(e) => changeView(() => setSearch(e.target.value))}
+              onChange={(e) =>
+                handleChangeView(() => setSearch(e.target.value))
+              }
             />
           </label>
           <select
             aria-label="Review client"
             value={clientId}
-            onChange={(e) => changeView(() => setClientId(e.target.value))}
+            onChange={(e) =>
+              handleChangeView(() => setClientId(e.target.value))
+            }
           >
             <option value="all">All clients</option>
             {data.clients.map((c) => (
@@ -197,7 +215,9 @@ export function ReviewPage({
           <select
             aria-label="Review employee"
             value={employee}
-            onChange={(e) => changeView(() => setEmployee(e.target.value))}
+            onChange={(e) =>
+              handleChangeView(() => setEmployee(e.target.value))
+            }
           >
             <option value="all">All team members</option>
             {employees.map((name) => (
@@ -207,7 +227,7 @@ export function ReviewPage({
           <select
             aria-label="Review status"
             value={status}
-            onChange={(e) => changeView(() => setStatus(e.target.value))}
+            onChange={(e) => handleChangeView(() => setStatus(e.target.value))}
           >
             <option value="all">All review states</option>
             <option value="pending">Needs review</option>
@@ -220,7 +240,8 @@ export function ReviewPage({
               type="checkbox"
               aria-label="Select visible entries"
               checked={
-                visible.length > 0 && selectedIds.length === visible.length
+                visible.length > 0 &&
+                visible.every((entry) => selectedIds.includes(entry.id))
               }
               disabled={!visible.length || readOnly}
               onChange={(e) =>
@@ -229,7 +250,15 @@ export function ReviewPage({
             />
             Select visible
           </label>
-          <span className="selection-count">{selectedIds.length} selected</span>
+          <span className="selection-count" role="status">
+            {selectedIds.length} selected · {duration(selectedMinutes)} in this
+            view
+          </span>
+          {selectedIds.length > 0 && (
+            <button className="text-button" onClick={() => setSelected([])}>
+              Clear selection
+            </button>
+          )}
           <select
             aria-label="Bulk action"
             value={action}
@@ -258,7 +287,7 @@ export function ReviewPage({
             className="button primary small"
             disabled={!selectedIds.length || readOnly}
             onClick={() =>
-              apply(
+              handleApply(
                 selectedIds,
                 action === 'client'
                   ? { clientId: targetClient }
@@ -284,7 +313,8 @@ export function ReviewPage({
               disabled={readOnly}
               onClick={() => {
                 try {
-                  save(undoEntries(operation));
+                  save(undoEntries(data, operation));
+                  setSelected([]);
                   setOperation(null);
                   setError('');
                   setMessage('Last review action undone.');
@@ -351,7 +381,7 @@ export function ReviewPage({
                     disabled={readOnly}
                     aria-label={`${entry.reviewed ? 'Reopen' : 'Review'} ${entry.description || client.name}`}
                     onClick={() =>
-                      apply([entry.id], { reviewed: !entry.reviewed })
+                      handleApply([entry.id], { reviewed: !entry.reviewed })
                     }
                   >
                     {entry.reviewed && <Check size={13} />}{' '}

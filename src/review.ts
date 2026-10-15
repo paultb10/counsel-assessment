@@ -11,7 +11,7 @@ export type ReviewFilters = {
 export type EntryPatch = Partial<
   Pick<Entry, 'clientId' | 'billable' | 'reviewed'>
 >;
-export type UndoRecord = { before: Data; ids: string[] };
+export type UndoRecord = { before: Entry[]; after: Entry[] };
 
 export function selectWeek(entries: Entry[], week: string) {
   return entries.filter(
@@ -41,16 +41,18 @@ export function selectReview(
         a.id.localeCompare(b.id),
     );
 }
-export function applyEntryUpdate(previous: Entry, next: Entry): Entry {
-  const changed =
-    previous.date !== next.date ||
-    previous.minutes !== next.minutes ||
-    previous.clientId !== next.clientId ||
-    previous.billable !== next.billable ||
-    previous.description !== next.description ||
-    previous.employee !== next.employee;
-  return { ...next, reviewed: changed ? false : previous.reviewed };
-}
+const entryFactsChanged = (previous: Entry, next: Entry): boolean =>
+  previous.date !== next.date ||
+  previous.minutes !== next.minutes ||
+  previous.clientId !== next.clientId ||
+  previous.billable !== next.billable ||
+  previous.description !== next.description ||
+  previous.employee !== next.employee;
+
+export const applyEntryUpdate = (previous: Entry, next: Entry): Entry => ({
+  ...next,
+  reviewed: entryFactsChanged(previous, next) ? false : previous.reviewed,
+});
 export function saveEntry(
   data: Data,
   entry: Entry,
@@ -92,10 +94,49 @@ export function updateEntries(
       if (!selected.has(entry.id)) return entry;
       const merged = { ...entry, ...patch };
       validateEntry(merged, data.clients);
-      return merged;
+      return entryFactsChanged(entry, merged)
+        ? applyEntryUpdate(entry, merged)
+        : merged;
     }),
   };
 }
-export function undoEntries(operation: UndoRecord): Data {
-  return operation.before;
-}
+const sameEntry = (left: Entry, right: Entry): boolean =>
+  left.id === right.id &&
+  !entryFactsChanged(left, right) &&
+  left.reviewed === right.reviewed;
+
+export const createUndoRecord = (before: Data, after: Data): UndoRecord => {
+  const changed = before.entries.filter((entry) => {
+    const next = after.entries.find((candidate) => candidate.id === entry.id);
+    return next && !sameEntry(entry, next);
+  });
+  const ids = new Set(changed.map((entry) => entry.id));
+  return {
+    before: changed,
+    after: after.entries.filter((entry) => ids.has(entry.id)),
+  };
+};
+
+export const undoEntries = (data: Data, operation: UndoRecord): Data => {
+  for (const expected of operation.after) {
+    const current = data.entries.find((entry) => entry.id === expected.id);
+    if (!current || !sameEntry(current, expected)) {
+      throw new Error(
+        'Cannot undo: an affected entry changed or was deleted. Your newer work has been kept.',
+      );
+    }
+  }
+  for (const original of operation.before) {
+    if (!data.clients.some((client) => client.id === original.clientId)) {
+      throw new Error(
+        'Cannot undo: the original client no longer exists. Your current work has been kept.',
+      );
+    }
+    validateEntry(original, data.clients);
+  }
+  const originals = new Map(operation.before.map((entry) => [entry.id, entry]));
+  return {
+    ...data,
+    entries: data.entries.map((entry) => originals.get(entry.id) ?? entry),
+  };
+};
