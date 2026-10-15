@@ -38,7 +38,7 @@ import { Modal } from './components/Modal';
 import { EntryForm } from './components/EntryForm';
 
 import { Sidebar } from './components/Sidebar';
-import type { Page } from './components/Sidebar';
+import { usePageLocation } from './navigation';
 import { ClientForm } from './components/ClientForm';
 import { Stat } from './components/Stat';
 import { ReviewPage } from './components/ReviewPage';
@@ -48,7 +48,7 @@ import { EntryTable } from './components/EntryTable';
 type Toast = { text: string; undo?: () => void };
 export default function App() {
   const { data, save, error: storageError } = useStore();
-  const [page, setPage] = useState<Page>('entries');
+  const { page, handleNavigate } = usePageLocation();
   const [week, setWeek] = useState(weekStart(localDate()));
   const [range, setRange] = useState('week');
   const [search, setSearch] = useState('');
@@ -120,7 +120,7 @@ export default function App() {
     <div className="app-shell">
       <Sidebar
         page={page}
-        setPage={setPage}
+        setPage={handleNavigate}
         onBackup={() => {
           setUtilityError('');
           setUtilityModal('backup');
@@ -635,7 +635,7 @@ export default function App() {
                             setRange('all');
                             setBilling('all');
                             setSearch('');
-                            setPage('entries');
+                            handleNavigate('entries');
                           }}
                         >
                           View entries <ArrowRight size={15} />
@@ -933,7 +933,7 @@ export default function App() {
                         save(pendingRestore, true);
                         setPendingRestore(null);
                         setUtilityModal(null);
-                        setPage('entries');
+                        handleNavigate('entries');
                         setWeek(
                           weekStart(
                             pendingRestore.entries

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useReviewLocation } from '../navigation';
 import {
   ArrowDownToLine,
   Check,
@@ -22,6 +23,7 @@ import {
 } from '../model';
 import {
   selectReview,
+  selectWeek,
   createUndoRecord,
   undoEntries,
   updateEntries,
@@ -39,18 +41,15 @@ export function ReviewPage({
   onEdit: (entry: Entry) => void;
   readOnly: boolean;
 }) {
-  const [week, setWeek] = useState(() =>
-    weekStart(
-      data.entries
-        .map((e) => e.date)
-        .sort()
-        .at(-1) ?? localDate(),
-    ),
+  const defaultWeek = weekStart(
+    data.entries
+      .map((entry) => entry.date)
+      .sort()
+      .at(-1) ?? localDate(),
   );
-  const [clientId, setClientId] = useState('all');
-  const [employee, setEmployee] = useState('all');
-  const [status, setStatus] = useState('all');
-  const [search, setSearch] = useState('');
+  const { filters, locationKey, handleChangeFilters } =
+    useReviewLocation(defaultWeek);
+  const { week, clientId, employee, status, search } = filters;
   const [selected, setSelected] = useState<string[]>([]);
   const [action, setAction] = useState('review');
   const [targetClient, setTargetClient] = useState(data.clients[0]?.id ?? '');
@@ -69,12 +68,8 @@ export function ReviewPage({
   const selectedIds = selected.filter((id) =>
     visible.some((entry) => entry.id === id),
   );
-  const employees = [...new Set(data.entries.map((e) => e.employee))].sort();
-  const selectedMinutes = totals(
-    visible.filter((entry) => selectedIds.includes(entry.id)),
-  ).total;
-  const handleChangeView = (update: () => void): void => {
-    update();
+  // Clear on navigation only; selecting rows must not trigger this effect.
+  useEffect(() => {
     setSelected([]);
     setError('');
     setMessage(
@@ -82,6 +77,21 @@ export function ReviewPage({
         ? 'View changed. Selection cleared to keep actions within this view.'
         : '',
     );
+  }, [locationKey]);
+  const weekEntries = selectWeek(data.entries, week);
+  const reviewedCount = weekEntries.filter((entry) => entry.reviewed).length;
+  const pendingCount = weekEntries.length - reviewedCount;
+  const employees = [...new Set(data.entries.map((e) => e.employee))].sort();
+  const selectedMinutes = totals(
+    visible.filter((entry) => selectedIds.includes(entry.id)),
+  ).total;
+  const entryLabel = `${selectedIds.length} ${selectedIds.length === 1 ? 'entry' : 'entries'}`;
+  const actionLabels: Record<string, string> = {
+    review: `Mark ${entryLabel} reviewed`,
+    reopen: `Return ${entryLabel} to review`,
+    billable: `Mark ${entryLabel} billable`,
+    nonbillable: `Mark ${entryLabel} non-billable`,
+    client: `Move ${entryLabel} to ${data.clients.find((client) => client.id === targetClient)?.name ?? 'client'}`,
   };
   const handleApply = (ids: string[], patch: EntryPatch): void => {
     setError('');
@@ -107,7 +117,7 @@ export function ReviewPage({
           <button
             className="icon-button"
             aria-label="Previous review week"
-            onClick={() => handleChangeView(() => setWeek(addDays(week, -7)))}
+            onClick={() => handleChangeFilters({ week: addDays(week, -7) })}
           >
             <ChevronLeft size={18} />
           </button>
@@ -119,14 +129,14 @@ export function ReviewPage({
               value={week}
               onChange={(e) =>
                 e.target.value &&
-                handleChangeView(() => setWeek(weekStart(e.target.value)))
+                handleChangeFilters({ week: weekStart(e.target.value) })
               }
             />
           </label>
           <button
             className="icon-button"
             aria-label="Next review week"
-            onClick={() => handleChangeView(() => setWeek(addDays(week, 7)))}
+            onClick={() => handleChangeFilters({ week: addDays(week, 7) })}
           >
             <ChevronRight size={18} />
           </button>
@@ -153,7 +163,19 @@ export function ReviewPage({
         </span>
         <div>
           <h2>Weekly review</h2>
-          <p>Check time entries and prepare this week's records.</p>
+          <p>
+            Whole week · {reviewedCount} of {weekEntries.length} reviewed ·{' '}
+            {pendingCount} need review
+          </p>
+          <progress
+            aria-label="Whole week review progress"
+            value={reviewedCount}
+            max={weekEntries.length || 1}
+          />
+          {!weekEntries.length && <p>No entries recorded for this week.</p>}
+          {weekEntries.length > 0 && pendingCount === 0 && (
+            <p>All entries reviewed for this week.</p>
+          )}
         </div>
       </div>
       <div className="review-summary" aria-label="Review summary">
@@ -193,17 +215,13 @@ export function ReviewPage({
               aria-label="Search review"
               placeholder="Find an entry…"
               value={search}
-              onChange={(e) =>
-                handleChangeView(() => setSearch(e.target.value))
-              }
+              onChange={(e) => handleChangeFilters({ search: e.target.value })}
             />
           </label>
           <select
             aria-label="Review client"
             value={clientId}
-            onChange={(e) =>
-              handleChangeView(() => setClientId(e.target.value))
-            }
+            onChange={(e) => handleChangeFilters({ clientId: e.target.value })}
           >
             <option value="all">All clients</option>
             {data.clients.map((c) => (
@@ -215,9 +233,7 @@ export function ReviewPage({
           <select
             aria-label="Review employee"
             value={employee}
-            onChange={(e) =>
-              handleChangeView(() => setEmployee(e.target.value))
-            }
+            onChange={(e) => handleChangeFilters({ employee: e.target.value })}
           >
             <option value="all">All team members</option>
             {employees.map((name) => (
@@ -227,7 +243,7 @@ export function ReviewPage({
           <select
             aria-label="Review status"
             value={status}
-            onChange={(e) => handleChangeView(() => setStatus(e.target.value))}
+            onChange={(e) => handleChangeFilters({ status: e.target.value })}
           >
             <option value="all">All review states</option>
             <option value="pending">Needs review</option>
@@ -297,7 +313,7 @@ export function ReviewPage({
               )
             }
           >
-            Apply to {selectedIds.length} selected
+            {actionLabels[action]}
           </button>
         </div>
         {error && (

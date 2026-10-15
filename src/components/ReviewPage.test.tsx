@@ -5,7 +5,7 @@ import {
   screen,
   within,
 } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 import { ReviewPage } from './ReviewPage';
 import { EntryForm } from './EntryForm';
@@ -19,6 +19,7 @@ vi.mock('../model', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../model')>()),
   download: vi.fn(),
 }));
+beforeEach(() => window.history.replaceState(null, '', '/'));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -117,7 +118,7 @@ describe('weekly review view and action scope', () => {
       target: { value: values[label] },
     });
     expect(
-      screen.getByRole('button', { name: 'Apply to 0 selected' }),
+      screen.getByRole('button', { name: 'Mark 0 entries reviewed' }),
     ).toBeDisabled();
     expect(screen.getByText(/View changed. Selection cleared/)).toBeVisible();
   });
@@ -128,14 +129,14 @@ describe('weekly review view and action scope', () => {
     expect(screen.getByRole('status')).toHaveTextContent('1 selected');
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
     expect(
-      screen.getByRole('button', { name: 'Apply to 0 selected' }),
+      screen.getByRole('button', { name: 'Mark 0 entries reviewed' }),
     ).toBeDisabled();
     fireEvent.click(within(row).getByRole('checkbox'));
     fireEvent.change(screen.getByLabelText('Bulk action'), {
       target: { value: 'nonbillable' },
     });
     fireEvent.click(
-      screen.getByRole('button', { name: 'Apply to 1 selected' }),
+      screen.getByRole('button', { name: 'Mark 1 entry non-billable' }),
     );
     expect(within(row).getByText('Non-billable')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Undo last action' }));

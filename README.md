@@ -21,6 +21,8 @@ To load the supplied workspace:
 2. Choose **Open pilot workspace**, then **Replace and restore**.
 3. Open **Weekly review**. The pilot week is **28 September–4 October 2026**.
 
+Weekly review keeps its page, week, client, employee, review status, and search in the URL. Refresh, bookmarks, and browser Back/Forward preserve that context on the same workspace. Selection clears when the view changes and is never restored from a link. Search replaces the current history entry so typing does not create a Back step per character. Whole-week progress remains separate from filtered totals. Undo is temporary and is cleared when leaving the review page or refreshing.
+
 The fixture also contains the previous week. Its dates are fixed so everyone investigates the same records, regardless of the current date. Reopening the pilot workspace replaces your local records after confirmation. Download a backup first if needed.
 
 ![The supplied weekly review screen](docs/review-start.png)
