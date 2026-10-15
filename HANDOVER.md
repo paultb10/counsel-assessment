@@ -1,27 +1,31 @@
 # Release handover
 
-## Changed
+## Changed and why
 
-Improved Friday review for 28 September–4 October 2026.
+Prioritized billing correctness for 28 September–4 October 2026.
 
-Description edits now preserve non-billable time. Weekly rows, totals and Export view share the active week and filters; selecting rows never narrows export. Individual and bulk corrections share review invalidation across date, employee, client, duration, billability and description. Unchanged saves retain review.
+- Editing descriptions preserves existing billability. Rows, totals and Export view now use identical week/filter scope; selection affects actions only.
+- Meaningful changes to date, employee, client, duration, billability or description require review again. Bulk client/billability corrections use the same rule; unchanged saves preserve review.
+- Undo restores only entries changed by the last effective review action, preserving unrelated work. Conflicting newer edits, deletions or missing original clients produce an explanation without partial restoration.
 
-Undo records only changed entries, preserves independent workspace changes, and declines conflicting edits/deletions or missing original clients before restoring anything. Assumption: reject the whole conflicting undo rather than partially restore it; only the last effective review action is undoable in this mounted view.
+Workflow improvement: previously, switching filters could leave hidden action targets. Selection now clears with an announcement when the week/filters change, is limited to visible entries, and shows count/duration with a Clear selection control.
 
-Workflow improvement: selection is restricted to visible records, clears when week/filters change, with an announcement, shows selected count and duration, and offers Clear selection. Previously, hidden selections could affect another view. Existing CSS and backup format are preserved; no dependencies added.
+Preserved supplied records, backup format and styling; added no dependencies.
 
-## Verified
+## Verification
 
 - `npm run check`: 49 unit/component tests pass; TypeScript and production build pass.
-- `npm run test:e2e`: 18 desktop/mobile Chromium checks pass, including pilot restoration, filtered CSV contents, non-billable editing, review invalidation, persistence, safe/conflicting Undo, viewport fit and axe WCAG A/AA scans.
-- Calendar/accounting/review tests pass under Europe/Bucharest, America/Los_Angeles and Pacific/Auckland. Dates remain local calendar dates; totals use integer minutes.
+- `npm run test:e2e`: 18 desktop/mobile Chromium checks pass, including actual CSV contents, corrections, saved-data persistence, successful/conflicting Undo, viewport fit and axe WCAG A/AA scans.
+- Calendar/accounting/review tests pass in Europe/Bucharest, America/Los_Angeles and Pacific/Auckland, covering month boundaries and integer-minute totals.
 
-Tests cover all six correction fields, unchanged saves, week boundaries, combined/empty filters, selection-independent exports and independent work during Undo.
+Regression tests cover all six correction fields, unchanged saves, combined/empty filters, selection-independent exports and preservation of unrelated work.
 
 ## Remaining and release recommendation
 
-Release to the fictional local pilot. Native Safari/Firefox and manual assistive-technology testing remain unverified. Undo is temporary, single-level and compares current values; this is not an immutable audit ledger. Dark theme, repeat-entry and additional review shortcuts were deferred to prioritize correctness.
+Recommend release to the fictional local pilot. Refresh preserves records but returns to Time entries and resets review context. Undo is temporary, single-level and compares current values. Safari/Firefox and manual assistive-technology testing remain unverified.
 
-## AI use
+Deferred dark theme, repeat-entry and additional review shortcuts to prioritize billing correctness. Next improvement: URL-backed navigation/filters.
 
-Codex assisted diagnosis, implementation and tests. Generated changes were checked against explicit invariants, including unchanged saves and conflicting Undo. Initial test-harness failures were corrected before reporting passing results.
+## AI collaboration
+
+Codex assisted diagnosis, implementation and tests. Tests check the brief and distinguish unchanged saves from corrections and safe Undo from conflicting newer work. Test-harness failures were corrected before claiming passing checks.
