@@ -14,7 +14,7 @@ Preserved records, backup format and styling; added no dependencies.
 
 ## Verification
 
-- `npm run check`: 55 unit/component tests pass; TypeScript and production build pass.
+- `npm run check`: 56 unit/component tests pass; TypeScript and production build pass.
 - `npm run test:e2e`: 22 desktop/mobile Chromium checks pass, including CSV contents, corrections, saved-data persistence, successful/conflicting Undo, refresh and Back/Forward, selection clearing, weekly progress, viewport fit and axe WCAG A/AA scans.
 - Calendar/accounting/review tests passed in Europe/Bucharest, America/Los_Angeles and Pacific/Auckland, including month boundaries and integer-minute totals.
 

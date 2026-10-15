@@ -75,6 +75,18 @@ describe('weekly review view and action scope', () => {
     expect(screen.getByTestId('review-total')).toHaveTextContent('0h');
     expect(screen.getByRole('button', { name: 'Export view' })).toBeDisabled();
   });
+  it('preserves the literal search term all in the URL and view', () => {
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText('Search review'), {
+      target: { value: 'all' },
+    });
+    expect(screen.getByLabelText('Search review')).toHaveValue('all');
+    expect(new URLSearchParams(window.location.search).get('search')).toBe(
+      'all',
+    );
+    expect(document.querySelectorAll('.review-row')).toHaveLength(2);
+    expect(screen.getByTestId('review-total')).toHaveTextContent('2h');
+  });
   it('exports the whole active view when only one entry is selected', () => {
     render(<Harness />);
     const data = initial();

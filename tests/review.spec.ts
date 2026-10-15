@@ -228,6 +228,12 @@ test('whole-week progress stays distinct from filters and handles empty weeks', 
   });
   await expect(progress).toHaveAttribute('value', String(reviewed));
   await expect(progress).toHaveAttribute('max', String(entries.length));
+  await page.getByLabel('Search review').fill('all');
+  await expect(page.getByLabel('Search review')).toHaveValue('all');
+  await expect(page.locator('.review-row')).toHaveCount(2);
+  await page.reload();
+  await expect(page.getByLabel('Search review')).toHaveValue('all');
+  await expect(page.locator('.review-row')).toHaveCount(2);
   await page.getByLabel('Search review').fill('no-such-entry');
   await expect(progress).toHaveAttribute('value', String(reviewed));
   await expect(page.getByTestId('review-total')).toHaveText('0h');

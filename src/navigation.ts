@@ -19,7 +19,10 @@ const updateLocation = (
 ): void => {
   const url = new URL(window.location.href);
   for (const [key, value] of Object.entries(changes)) {
-    if (!value || value === 'all') url.searchParams.delete(key);
+    const isDefaultFilter =
+      (key === 'client' || key === 'employee' || key === 'status') &&
+      value === 'all';
+    if (!value || isDefaultFilter) url.searchParams.delete(key);
     else url.searchParams.set(key, value);
   }
   if (url.href === window.location.href) return;
